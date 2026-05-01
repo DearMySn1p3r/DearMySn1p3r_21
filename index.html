@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Notification Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,400;1,300&family=DM+Sans:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --paper: #f4f1ec;
+  --white: #ffffff;
+  --ink:   #1a1814;
+  --dust:  #a09890;
+  --line:  #e6e1da;
+  --field: #edeae4;
+  --field-focus: #e8e4dd;
+}
+
+html { font-size: 14px; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 100vh;
+  padding: 56px 32px 96px;
+}
+
+/* ── Header ── */
+.hdr {
+  text-align: center;
+  margin-bottom: 56px;
+}
+.hdr-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 14px;
+}
+.hdr-title {
+  font-family: 'Fraunces', serif;
+  font-size: 36px;
+  font-weight: 300;
+  letter-spacing: -.02em;
+  color: var(--ink);
+  line-height: 1;
+}
+.hdr-title em {
+  font-style: italic;
+  font-weight: 300;
+}
+.hdr-sub {
+  margin-top: 10px;
+  font-size: 12.5px;
+  font-weight: 300;
+  color: var(--dust);
+  letter-spacing: .01em;
+}
+
+/* ── Workspace grid ── */
+.workspace {
+  max-width: 960px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+/* ── Left panel ── */
+.panel {
+  background: var(--white);
+  border-radius: 18px;
+  padding: 28px 24px;
+  box-shadow: 0 1px 0 var(--line), 0 4px 24px rgba(0,0,0,.05);
+}
+
+/* ── Field ── */
+.f { margin-bottom: 16px; }
+.f:last-of-type { margin-bottom: 0; }
+.f-label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 7px;
+}
+.f input[type="text"],
+.f textarea {
+  width: 100%;
+  background: var(--field);
+  border: none;
+  border-radius: 10px;
+  padding: 10px 13px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 300;
+  color: var(--ink);
+  outline: none;
+  transition: background .15s;
+}
+.f input[type="text"]:focus,
+.f textarea:focus { background: var(--field-focus); }
+.f input[type="text"]::placeholder,
+.f textarea::placeholder { color: #c5bfb8; }
+.f textarea {
+  resize: vertical;
+  min-height: 86px;
+  line-height: 1.7;
+}
+
+/* ── Custom dropdown ── */
+.dropdown { position: relative; }
+.dd-trigger {
+  width: 100%;
+  background: var(--field);
+  border: none;
+  border-radius: 10px;
+  padding: 10px 36px 10px 13px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background .15s;
+  outline: none;
+  position: relative;
+  user-select: none;
+}
+.dd-trigger::after {
+  content: '';
+  position: absolute;
+  right: 13px; top: 50%;
+  transform: translateY(-50%);
+  width: 0; height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--dust);
+  transition: transform .2s;
+}
+.dd-trigger.open::after { transform: translateY(-50%) rotate(180deg); }
+.dd-trigger:hover { background: var(--field-focus); }
+
+.dd-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0; right: 0;
+  background: var(--white);
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0,0,0,.04), 0 12px 40px rgba(0,0,0,.12);
+  padding: 6px;
+  z-index: 100;
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity .16s, transform .16s;
+}
+.dd-menu.open {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: all;
+}
+.dd-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 300;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background .1s;
+}
+.dd-item:hover, .dd-item.active { background: var(--field); }
+.dd-item.active { font-weight: 500; }
+.dd-sep {
+  height: 1px;
+  background: var(--line);
+  margin: 4px 6px;
+}
+.dd-icon { font-size: 14px; line-height: 1; flex-shrink: 0; }
+.dd-name { flex: 1; }
+
+/* ── Custom input reveal ── */
+.custom-reveal {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height .25s ease, opacity .2s ease;
+}
+.custom-reveal.show {
+  max-height: 120px;
+  opacity: 1;
+}
+.row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding-top: 12px;
+}
+.row2 .f { margin-bottom: 0; }
+
+/* ── Divider ── */
+.div { height: 1px; background: var(--line); margin: 20px 0; }
+
+/* ── Toggle rows ── */
+.tog-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+.tog-row + .tog-row { border-top: 1px solid var(--line); }
+.tog-label { font-size: 12.5px; font-weight: 300; color: #666; }
+.tog {
+  position: relative;
+  width: 34px; height: 19px; flex-shrink: 0;
+}
+.tog input { opacity: 0; width: 0; height: 0; position: absolute; }
+.tog-track {
+  position: absolute; inset: 0;
+  background: var(--line);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background .2s;
+}
+.tog-track::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 15px; height: 15px;
+  background: white;
+  border-radius: 50%;
+  transition: transform .2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.18);
+}
+.tog input:checked + .tog-track { background: #3a3a3a; }
+.tog input:checked + .tog-track::after { transform: translateX(15px); }
+
+/* ── Theme swatches ── */
+.swatch-row { display: flex; gap: 9px; align-items: center; }
+.sw {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform .15s, border-color .15s;
+  position: relative;
+  flex-shrink: 0;
+}
+.sw:hover { transform: scale(1.12); }
+.sw.active { border-color: var(--ink); }
+.sw.active::after {
+  content: '✓';
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: white;
+  text-shadow: 0 1px 2px rgba(0,0,0,.4);
+}
+.sw-ink    { background: radial-gradient(circle at 35% 35%, #3a3a3a, #111); }
+.sw-blue   { background: radial-gradient(circle at 35% 35%, #1e3a5f, #0a1628); }
+.sw-forest { background: radial-gradient(circle at 35% 35%, #1a3225, #091810); }
+.sw-ember  { background: radial-gradient(circle at 35% 35%, #3d1f0a, #180c04); }
+.sw-dusk   { background: radial-gradient(circle at 35% 35%, #2a1f3d, #0f0a1a); }
+.sw-chalk  { background: radial-gradient(circle at 35% 35%, #f5f2ed, #d8d3cb); }
+
+/* ── Download button ── */
+.btn-dl {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; margin-top: 20px;
+  padding: 12px;
+  background: var(--ink);
+  color: #f5f2ed;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12.5px; font-weight: 500;
+  letter-spacing: .04em;
+  border: none; border-radius: 11px;
+  cursor: pointer;
+  transition: opacity .2s, transform .1s;
+}
+.btn-dl:hover { opacity: .82; }
+.btn-dl:active { transform: scale(.98); }
+.btn-dl.busy { opacity: .45; pointer-events: none; }
+
+/* ── Right / Preview ── */
+.preview-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.prev-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+.prev-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--dust);
+}
+.prev-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  color: #d0cbc3;
+}
+
+/* ─── Export canvas ─── */
+/* background intentionally matches --paper so capture is seamless */
+#export-canvas {
+  background: var(--paper);   /* same as body — no jarring border */
+  border-radius: 18px;
+  box-shadow: 0 1px 0 var(--line), 0 6px 32px rgba(0,0,0,.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 44px;
+  min-height: 220px;
+}
+
+/* ─── Notification card ─── */
+.notif { width: 100%; max-width: 460px; }
+
+.notif-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+  padding: 0 2px;
+}
+.notif-app-row { display: flex; align-items: center; gap: 7px; }
+.notif-app-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.notif-app-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  opacity: .55;
+}
+
+.notif-bubble {
+  border-radius: 16px;
+  overflow: hidden;
+}
+.notif-inner {
+  padding: 17px 18px;
+  display: flex;
+  gap: 13px;
+  align-items: flex-start;
+}
+.notif-emo { font-size: 20px; line-height: 1; margin-top: 2px; flex-shrink: 0; }
+.notif-body { flex: 1; min-width: 0; }
+.notif-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8.5px; font-weight: 500;
+  letter-spacing: .14em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 4px;
+  margin-bottom: 7px;
+}
+.notif-badge::before {
+  content: '';
+  width: 4px; height: 4px; border-radius: 50%;
+  background: currentColor; opacity: .7;
+}
+.notif-title {
+  font-size: 13px; font-weight: 600;
+  line-height: 1.45; margin-bottom: 4px;
+}
+.notif-text {
+  font-size: 12.5px; font-weight: 300;
+  line-height: 1.78; white-space: pre-wrap; word-break: keep-all;
+}
+.notif-footer {
+  display: flex; align-items: center; justify-content: flex-end;
+  padding: 9px 16px;
+}
+.notif-footer-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8.5px; letter-spacing: .12em;
+  text-transform: uppercase; opacity: .3;
+}
+
+/* ── Themes ── */
+/* ink */
+.th-ink .notif-app-dot    { background: #aaa; }
+.th-ink .notif-app-name   { color: #aaa; }
+.th-ink .notif-bubble     { background: #171717; border: 1px solid #262626; }
+.th-ink .notif-badge      { background: #222; color: #aaa; }
+.th-ink .notif-title      { color: #f0f0ee; }
+.th-ink .notif-text       { color: #b0b0aa; }
+.th-ink .notif-footer     { background: #111; border-top: 1px solid #222; }
+.th-ink .notif-footer-tag { color: #888; }
+.th-ink .notif-bubble     { box-shadow: 0 20px 56px rgba(0,0,0,.35), 0 4px 12px rgba(0,0,0,.2); }
+
+/* blue */
+.th-blue .notif-app-dot   { background: #6ba7e0; }
+.th-blue .notif-app-name  { color: #6ba7e0; }
+.th-blue .notif-bubble    { background: #0f1620; border: 1px solid #1c2d42; }
+.th-blue .notif-badge     { background: #0d1e32; color: #6ba7e0; }
+.th-blue .notif-title     { color: #dce8f5; }
+.th-blue .notif-text      { color: #8fa8c4; }
+.th-blue .notif-footer    { background: #0a1018; border-top: 1px solid #162030; }
+.th-blue .notif-footer-tag{ color: #6ba7e0; }
+.th-blue .notif-bubble    { box-shadow: 0 20px 56px rgba(0,20,60,.4), 0 4px 12px rgba(0,10,30,.3); }
+
+/* forest */
+.th-forest .notif-app-dot  { background: #6bab7a; }
+.th-forest .notif-app-name { color: #6bab7a; }
+.th-forest .notif-bubble   { background: #0c1610; border: 1px solid #182a1e; }
+.th-forest .notif-badge    { background: #0a2012; color: #6bab7a; }
+.th-forest .notif-title    { color: #d8f0de; }
+.th-forest .notif-text     { color: #8ab496; }
+.th-forest .notif-footer   { background: #091008; border-top: 1px solid #142018; }
+.th-forest .notif-footer-tag{color: #6bab7a; }
+.th-forest .notif-bubble   { box-shadow: 0 20px 56px rgba(0,20,8,.4), 0 4px 12px rgba(0,10,4,.3); }
+
+/* ember */
+.th-ember .notif-app-dot  { background: #e0934a; }
+.th-ember .notif-app-name { color: #e0934a; }
+.th-ember .notif-bubble   { background: #1a1008; border: 1px solid #2e1e0a; }
+.th-ember .notif-badge    { background: #2a1606; color: #e0934a; }
+.th-ember .notif-title    { color: #f5e8d5; }
+.th-ember .notif-text     { color: #c0966e; }
+.th-ember .notif-footer   { background: #140c04; border-top: 1px solid #261608; }
+.th-ember .notif-footer-tag{color: #e0934a; }
+.th-ember .notif-bubble   { box-shadow: 0 20px 56px rgba(40,10,0,.4), 0 4px 12px rgba(20,5,0,.3); }
+
+/* dusk */
+.th-dusk .notif-app-dot  { background: #a888d8; }
+.th-dusk .notif-app-name { color: #a888d8; }
+.th-dusk .notif-bubble   { background: #110e1c; border: 1px solid #221836; }
+.th-dusk .notif-badge    { background: #1a1030; color: #a888d8; }
+.th-dusk .notif-title    { color: #ece4f8; }
+.th-dusk .notif-text     { color: #9a88b8; }
+.th-dusk .notif-footer   { background: #0d0a14; border-top: 1px solid #1a1428; }
+.th-dusk .notif-footer-tag{color: #a888d8; }
+.th-dusk .notif-bubble   { box-shadow: 0 20px 56px rgba(10,0,30,.4), 0 4px 12px rgba(5,0,15,.3); }
+
+/* chalk (light) */
+.th-chalk .notif-app-dot  { background: #999; }
+.th-chalk .notif-app-name { color: #888; }
+.th-chalk .notif-bubble   { background: #ffffff; border: 1px solid #e6e0d8; }
+.th-chalk .notif-badge    { background: #f0ede7; color: #888; }
+.th-chalk .notif-title    { color: #1a1814; }
+.th-chalk .notif-text     { color: #6a6460; }
+.th-chalk .notif-footer   { background: #f8f5f0; border-top: 1px solid #e8e4dc; }
+.th-chalk .notif-footer-tag{color: #aaa; }
+.th-chalk .notif-bubble   { box-shadow: 0 8px 32px rgba(0,0,0,.10), 0 2px 8px rgba(0,0,0,.06); }
+
+/* chalk on paper bg — dot uses ink color */
+.th-chalk.notif { color: var(--ink); }
+
+/* ── Responsive ── */
+@media (max-width: 760px) {
+  .workspace { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <p class="hdr-tag">Image Generator</p>
+  <h1 class="hdr-title">Notification <em>Generator</em></h1>
+  <p class="hdr-sub">알림창을 꾸미고 이미지로 저장하세요</p>
+</header>
+
+<div class="workspace">
+
+  <!-- ─ Left panel ─ -->
+  <div class="panel">
+
+    <!-- Type dropdown -->
+    <div class="f">
+      <label class="f-label">알림 유형</label>
+      <div class="dropdown" id="dropdown">
+        <button class="dd-trigger" id="dd-trigger" type="button">
+          <span class="dd-icon" id="dd-sel-icon">📲</span>
+          <span id="dd-sel-name">시스템 알림</span>
+        </button>
+        <div class="dd-menu" id="dd-menu">
+          <div class="dd-item active" data-icon="📲" data-tag="System Alert" data-name="시스템 알림">
+            <span class="dd-icon">📲</span><span class="dd-name">시스템 알림</span>
+          </div>
+          <div class="dd-item" data-icon="🤖" data-tag="AI Comment" data-name="AI 한마디">
+            <span class="dd-icon">🤖</span><span class="dd-name">AI 한마디</span>
+          </div>
+          <div class="dd-sep"></div>
+          <div class="dd-item" data-icon="⚠️" data-tag="Warning" data-name="경고">
+            <span class="dd-icon">⚠️</span><span class="dd-name">경고</span>
+          </div>
+          <div class="dd-item" data-icon="🔒" data-tag="Security" data-name="보안">
+            <span class="dd-icon">🔒</span><span class="dd-name">보안</span>
+          </div>
+          <div class="dd-item" data-icon="📡" data-tag="Status Report" data-name="상태 보고">
+            <span class="dd-icon">📡</span><span class="dd-name">상태 보고</span>
+          </div>
+          <div class="dd-sep"></div>
+          <div class="dd-item" data-icon="🗂️" data-tag="Record Update" data-name="기록 업데이트">
+            <span class="dd-icon">🗂️</span><span class="dd-name">기록 업데이트</span>
+          </div>
+          <div class="dd-item" data-icon="✨" data-tag="Special Note" data-name="특이사항">
+            <span class="dd-icon">✨</span><span class="dd-name">특이사항</span>
+          </div>
+          <div class="dd-item" data-icon="💬" data-tag="Message" data-name="메시지">
+            <span class="dd-icon">💬</span><span class="dd-name">메시지</span>
+          </div>
+          <div class="dd-item" data-icon="📊" data-tag="Report" data-name="보고서">
+            <span class="dd-icon">📊</span><span class="dd-name">보고서</span>
+          </div>
+          <div class="dd-item" data-icon="🔔" data-tag="Notice" data-name="공지">
+            <span class="dd-icon">🔔</span><span class="dd-name">공지</span>
+          </div>
+          <div class="dd-sep"></div>
+          <div class="dd-item" data-icon="" data-tag="" data-name="직접 입력" data-custom="1">
+            <span class="dd-icon">✏️</span><span class="dd-name">직접 입력</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Custom reveal -->
+    <div class="custom-reveal" id="custom-reveal">
+      <div class="row2">
+        <div class="f">
+          <label class="f-label">아이콘</label>
+          <input type="text" id="c-icon" placeholder="🎯" maxlength="4"/>
+        </div>
+        <div class="f">
+          <label class="f-label">태그명</label>
+          <input type="text" id="c-tag" placeholder="My Tag"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sender -->
+    <div class="f">
+      <label class="f-label">발신처</label>
+      <input type="text" id="i-sender" placeholder="예: SYSTEM, MY LOG, …"/>
+    </div>
+
+    <!-- Title -->
+    <div class="f">
+      <label class="f-label">제목 <span style="opacity:.5;font-weight:300;">선택</span></label>
+      <input type="text" id="i-title" placeholder="제목을 입력하거나 비워두세요"/>
+    </div>
+
+    <!-- Body -->
+    <div class="f">
+      <label class="f-label">내용</label>
+      <textarea id="i-body" placeholder="알림 본문을 입력하세요…"></textarea>
+    </div>
+
+    <div class="div"></div>
+
+    <!-- Toggles -->
+    <div class="tog-row">
+      <span class="tog-label">유형 배지</span>
+      <label class="tog"><input type="checkbox" id="o-badge" checked><span class="tog-track"></span></label>
+    </div>
+    <div class="tog-row">
+      <span class="tog-label">발신처 바</span>
+      <label class="tog"><input type="checkbox" id="o-topbar" checked><span class="tog-track"></span></label>
+    </div>
+    <div class="tog-row">
+      <span class="tog-label">하단 출처</span>
+      <label class="tog"><input type="checkbox" id="o-footer" checked><span class="tog-track"></span></label>
+    </div>
+
+    <div class="div"></div>
+
+    <!-- Themes -->
+    <div class="f-label" style="margin-bottom:12px;">테마</div>
+    <div class="swatch-row" id="swatches">
+      <div class="sw sw-ink    active" data-th="ink"   ></div>
+      <div class="sw sw-blue"          data-th="blue"  ></div>
+      <div class="sw sw-forest"        data-th="forest"></div>
+      <div class="sw sw-ember"         data-th="ember" ></div>
+      <div class="sw sw-dusk"          data-th="dusk"  ></div>
+      <div class="sw sw-chalk"         data-th="chalk" ></div>
+    </div>
+
+    <!-- Download -->
+    <button class="btn-dl" id="btn-dl" onclick="doDownload()">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+        <path d="M6.5 1v7M4 5.5l2.5 2.5L9 5.5M1.5 11h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      PNG로 저장
+    </button>
+  </div>
+
+  <!-- ─ Right: Preview ─ -->
+  <div class="preview-col">
+    <div class="prev-meta">
+      <span class="prev-label">미리보기</span>
+      <span class="prev-hint">실시간 반영</span>
+    </div>
+
+    <div id="export-canvas">
+      <div class="notif th-ink" id="n-root">
+
+        <!-- topbar -->
+        <div class="notif-topbar" id="n-topbar">
+          <div class="notif-app-row">
+            <div class="notif-app-dot" id="n-dot"></div>
+            <span class="notif-app-name" id="n-sender">SYSTEM</span>
+          </div>
+        </div>
+
+        <!-- bubble -->
+        <div class="notif-bubble">
+          <div class="notif-inner">
+            <div class="notif-emo" id="n-emo">📲</div>
+            <div class="notif-body">
+              <div class="notif-badge" id="n-badge">System Alert</div>
+              <div class="notif-title" id="n-title" style="display:none;"></div>
+              <p class="notif-text" id="n-text" style="opacity:.28;">내용을 입력하면 여기에 표시됩니다.</p>
+            </div>
+          </div>
+          <div class="notif-footer" id="n-footer">
+            <span class="notif-footer-tag" id="n-ftag">System Alert</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let S={icon:'📲',tag:'System Alert',sender:'',title:'',body:'',theme:'ink',badge:true,topbar:true,footer:true,custom:false};
+
+/* dropdown */
+const trigger=$('dd-trigger'), menu=$('dd-menu');
+trigger.addEventListener('click',e=>{e.stopPropagation(); const o=menu.classList.toggle('open'); trigger.classList.toggle('open',o);});
+document.addEventListener('click',()=>{menu.classList.remove('open');trigger.classList.remove('open');});
+
+menu.addEventListener('mouseover',e=>{
+  const item=e.target.closest('.dd-item'); if(!item) return;
+  menu.querySelectorAll('.dd-item').forEach(i=>i.classList.remove('active'));
+  item.classList.add('active');
+});
+menu.addEventListener('click',e=>{
+  const item=e.target.closest('.dd-item'); if(!item) return;
+  S.custom=!!item.dataset.custom;
+  $('custom-reveal').classList.toggle('show', S.custom);
+  if(!S.custom){
+    S.icon=item.dataset.icon; S.tag=item.dataset.tag;
+  } else {
+    S.icon=$('c-icon').value||'🎯'; S.tag=$('c-tag').value||'Custom';
+  }
+  $('dd-sel-icon').textContent=item.querySelector('.dd-icon').textContent;
+  $('dd-sel-name').textContent=item.dataset.name;
+  menu.classList.remove('open'); trigger.classList.remove('open');
+  render();
+});
+
+/* custom inputs */
+$('c-icon').addEventListener('input',()=>{if(S.custom){S.icon=$('c-icon').value||'🎯';render();}});
+$('c-tag').addEventListener('input', ()=>{if(S.custom){S.tag=$('c-tag').value||'Custom';render();}});
+
+/* text inputs */
+$('i-sender').addEventListener('input',()=>{S.sender=$('i-sender').value;render();});
+$('i-title').addEventListener('input', ()=>{S.title=$('i-title').value;render();});
+$('i-body').addEventListener('input',  ()=>{S.body=$('i-body').value;render();});
+
+/* toggles */
+$('o-badge').addEventListener('change', ()=>{S.badge=$('o-badge').checked;render();});
+$('o-topbar').addEventListener('change',()=>{S.topbar=$('o-topbar').checked;render();});
+$('o-footer').addEventListener('change',()=>{S.footer=$('o-footer').checked;render();});
+
+/* swatches */
+$('swatches').addEventListener('click',e=>{
+  const sw=e.target.closest('.sw'); if(!sw) return;
+  document.querySelectorAll('.sw').forEach(s=>s.classList.remove('active'));
+  sw.classList.add('active');
+  S.theme=sw.dataset.th; render();
+});
+
+function render(){
+  $('n-root').className='notif th-'+S.theme;
+  /* topbar */
+  $('n-topbar').style.display=S.topbar?'':'none';
+  $('n-sender').textContent=(S.sender||S.tag).toUpperCase();
+  /* emoji + badge */
+  $('n-emo').textContent=S.icon;
+  $('n-badge').textContent=S.tag;
+  $('n-badge').style.display=S.badge?'':'none';
+  /* title */
+  if(S.title){$('n-title').style.display='';$('n-title').textContent=S.title;}
+  else $('n-title').style.display='none';
+  /* body */
+  const b=$('n-text');
+  if(S.body){b.textContent=S.body;b.style.opacity='1';}
+  else{b.textContent='내용을 입력하면 여기에 표시됩니다.';b.style.opacity='.28';}
+  /* footer */
+  $('n-footer').style.display=S.footer?'':'none';
+  $('n-ftag').textContent=S.tag;
+}
+
+async function doDownload(){
+  const btn=$('btn-dl');
+  btn.classList.add('busy');
+  btn.innerHTML=`<svg width="13" height="13" viewBox="0 0 13 13"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.4" fill="none" stroke-dasharray="16"><animate attributeName="stroke-dashoffset" from="16" to="0" dur=".6s" repeatCount="indefinite"/></circle></svg> 생성 중…`;
+  try{
+    const cvs=await html2canvas($('export-canvas'),{scale:3,useCORS:true,backgroundColor:null,logging:false});
+    const a=document.createElement('a');
+    a.download=`notif_${S.tag.replace(/\s+/g,'_').toLowerCase()}_${Date.now()}.png`;
+    a.href=cvs.toDataURL('image/png'); a.click();
+  } catch(e){ alert('저장 실패: '+e.message); }
+  btn.classList.remove('busy');
+  btn.innerHTML=`<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1v7M4 5.5l2.5 2.5L9 5.5M1.5 11h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> PNG로 저장`;
+}
+
+render();
+</script>
+</body>
+</html>
