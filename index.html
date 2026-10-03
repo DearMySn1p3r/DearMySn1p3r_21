@@ -676,7 +676,7 @@ $('gifBtn').onclick=async()=>{
   const btn=$('gifBtn');btn.disabled=true;showToast('GIF 준비 중',true);
   try{
     const {GIFEncoder,quantize,applyPalette}=await import('https://unpkg.com/gifenc@1.0.3/dist/gifenc.esm.js');
-    const S=1.25,{W,H,cards}=await captureParts(S);
+    const S=2,{W,H,cards}=await captureParts(S);
     const k={slow:1.4,normal:1,fast:.7}[G.speed];
     const FPS=25,DT=1000/FPS,STAG=650*k,DROP=480*k,HOLD=2600*k,FADE=380,GAP=300;
     const total=STAG*(cards.length-1)+DROP+HOLD+FADE+GAP;
@@ -699,15 +699,23 @@ $('gifBtn').onclick=async()=>{
     const steps=Math.ceil(total/DT);
     // frames where nothing moves are merged into one longer frame (smaller file)
     const stateAt=t=>{const out=t>total-FADE-GAP?Math.max(0,1-(t-(total-FADE-GAP))/FADE):1;return cards.map((c,i)=>Math.max(0,Math.min(1,(t-i*STAG)/DROP)).toFixed(3)).join()+'|'+out.toFixed(3);};
+    const BAYER=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5].map(v=>(v/16-.47)*6);
+    const settled=stateAt(total-FADE-GAP-1);
     let pending=null,prevState='';
     for(let f=0;f<steps;f++){
       const t=f*DT,st=stateAt(t);
       if(pending&&st===prevState){pending.delay+=DT;continue;}
-      if(pending)gif.writeFrame(pending.idx,W,H,{palette:pal,delay:pending.delay});
-      paint(t);pending={idx:applyPalette(ctx.getImageData(0,0,W,H).data,pal),delay:DT};prevState=st;
+      if(pending)gif.writeFrame(pending.idx,W,H,{palette:pending.pal,delay:pending.delay});
+      paint(t);
+      // settled frames share one palette (steady colours); moving or fading frames get their own (no banding)
+      const data=ctx.getImageData(0,0,W,H).data;
+      const p=st===settled?pal:quantize(data,256);
+      // light ordered dither hides banding in soft shadows and pastel fills
+      for(let y=0,i=0;y<H;y++)for(let x=0;x<W;x++,i+=4){const n=BAYER[((y&3)<<2)|(x&3)];data[i]+=n;data[i+1]+=n;data[i+2]+=n;}
+      pending={idx:applyPalette(data,p),pal:p,delay:DT};prevState=st;
       if(f%8===0){showToast('GIF 만드는 중 '+Math.round(f/steps*100)+'%',true);await frame();}
     }
-    if(pending)gif.writeFrame(pending.idx,W,H,{palette:pal,delay:pending.delay});
+    if(pending)gif.writeFrame(pending.idx,W,H,{palette:pending.pal,delay:pending.delay});
     gif.finish();
     const url=URL.createObjectURL(new Blob([gif.bytes()],{type:'image/gif'}));
     const a=document.createElement('a');a.download='notification_'+Date.now()+'.gif';a.href=url;a.click();
